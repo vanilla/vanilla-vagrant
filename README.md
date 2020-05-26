@@ -3,6 +3,7 @@
 ### Prerequisites:
 
 + Vagrant installed in your environment ([More Info](https://www.vagrantup.com/downloads.html))
++ Oracle VM VirtualBox ([More Info]https://www.virtualbox.org/) as preferred hypervisor
 
 ### Usage
 
