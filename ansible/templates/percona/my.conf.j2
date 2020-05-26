@@ -1,0 +1,121 @@
+#
+# MySQL Configuration
+#
+# Migration VM specific configuration
+
+#**************************************************************************
+[mysqld]
+#**************************************************************************
+user                            = mysql
+pid_file                        = /var/run/mysqld/mysqld.pid
+socket                          = /var/run/mysqld/mysqld.sock
+bind_address                    = 0.0.0.0
+port                            = 3306
+basedir                         = /usr
+tmpdir                          = /tmp
+
+datadir                         = /var/lib/mysql
+
+performance_schema              = ON
+performance-schema-instrument   = 'memory/%=ON'
+userstat                        = ON                   # https://www.percona.com/doc/percona-server/5.7/diagnostics/user_stats.html
+
+max_prepared_stmt_count         = 16K
+
+character_set_server            = utf8mb4
+collation_server                = utf8mb4_unicode_ci
+
+sql_mode                        = "NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION"
+                                                        # Default Value (>= 5.7.8)  ONLY_FULL_GROUP_BY STRICT_TRANS_TABLES NO_ZERO_IN_DATE NO_ZERO_DATE ERROR_FOR_DIVISION_BY_ZERO NO_AUTO_CREATE_USER NO_ENGINE_SUBSTITUTION
+                                                        # Default Valsystemue (5.7.7)   ONLY_FULL_GROUP_BY STRICT_TRANS_TABLES NO_AUTO_CREATE_USER NO_ENGINE_SUBSTITUTION
+                                                        # Default Value (>= 5.7.5, <= 5.7.6)    ONLY_FULL_GROUP_BY STRICT_TRANS_TABLES NO_ENGINE_SUBSTITUTION
+                                                        # Default Value (<= 5.7.4)  NO_ENGINE_SUBSTITUTION
+
+wait_timeout                    = 300                   # The number of seconds the server waits for activity on a noninteractive connection before closing it.
+interactive_timeout             = 1800                  # The number of seconds the server waits for activity on an interactive connection before closing it.
+net_read_timeout                = 60                    # The number of seconds to wait for more data from a connection before aborting the read. When the server is reading from the client, net_read_timeout is the timeout value controlling when to abort.
+net_write_timeout               = 60                    # The number of seconds to wait for a block to be written to a connection before aborting the write.
+net_buffer_length               = 128M                  # Each client thread is associated with a connection buffer and result buffer. Both begin with a size given by net_buffer_length but are dynamically enlarged up to max_allowed_packet bytes as needed. The result buffer shrinks to net_buffer_length after each SQL statement. If statements exceed this length, the connection buffer is automatically enlarged.
+max_allowed_packet              = 128M
+
+max_heap_table_size             = 128M                   # Sets the maximum size to which user-created MEMORY tables are permitted to grow. This variable is also used in conjunction with tmp_table_size to limit the size of internal in-memory tables.
+tmp_table_size                  = 128M                   # The maximum size of internal in-memory temporary tables. If an in-memory temporary table exceeds the limit, MySQL automatically converts it to an on-disk temporary table.
+
+default_storage_engine          = InnoDB                # The default storage engine. This variable sets the storage engine for permanent tables only.
+default_tmp_storage_engine      = InnoDB                # The default storage engine for TEMPORARY tables (created with CREATE TEMPORARY TABLE).
+internal_tmp_disk_storage_engine = InnoDB               # The storage engine for on-disk internal temporary tables. Default Value: (>= 5.7.6) INNODB; (<= 5.7.5) MYISAM
+disabled_storage_engines        = "MRG_MYISAM,FEDERATED" # This variable indicates which storage engines cannot be used to create tables or tablespaces. Does not restrict other DDL statements for existing tables
+
+max_connect_errors              = 4294967295            # After max_connect_errors successive connection requests from a host are interrupted without a successful connection, the server blocks that host from further connections. If a connection from a host is established successfully within fewer than max_connect_errors attempts after a previous connection was interrupted, the error count for the host is cleared to zero. However, once a host is blocked, flushing the host cache is the only way to unblock it.
+connect_timeout                 = 5                     # The number of seconds that the mysqld server waits for a connect packet before responding with Bad handshake.
+
+thread_handling                 = pool-of-threads       # https://www.percona.com/doc/percona-server/5.7/performance/threadpool.html
+thread_pool_size                = 160
+thread_cache_size               = 512
+thread_stack                    = 512K
+
+sort_buffer_size                = 32M
+read_buffer_size                = 32M
+read_rnd_buffer_size            = 32M
+join_buffer_size                = 32M
+max_digest_length               = 1M
+
+open_files_limit                = 10000
+table_open_cache                = 512                   # The number of open tables for all threads. Increasing this value increases the number of file descriptors that mysqld requires.
+table_open_cache_instances      = 8                     # The number of open tables cache instances. To improve scalability by reducing contention among sessions, the open tables cache can be partitioned into several smaller cache instances of size table_open_cache / table_open_cache_instances. A session needs to lock only one instance to access it for DML statements.
+table_definition_cache          = 512
+
+innodb_flush_method             = O_DIRECT
+innodb_flush_log_at_trx_commit  = 2                     # The default setting of 1 is required for full ACID compliance. Logs are written and flushed to disk at each transaction commit.
+innodb_flush_log_at_timeout     = 1
+innodb_file_per_table           = 1
+innodb_adaptive_hash_index      = on
+innodb_buffer_pool_size         = 512M
+innodb_buffer_pool_instances    = 4
+innodb_buffer_pool_chunk_size   = 128M
+innodb_buffer_pool_dump_at_shutdown = off
+innodb_buffer_pool_load_at_startup = off
+innodb_thread_concurrency       = 0
+innodb_read_io_threads          = 8
+innodb_write_io_threads         = 8
+
+query_cache_size                = 0
+query_cache_type                = 0
+
+#---------------------------
+log_output                      = FILE
+log_error                       = /var/log/mysql/mysql.err
+log_error_verbosity             = 3
+#---------------------------
+general_log                     = 0
+general_log_file                = mysql.log
+#---------------------------
+slow_query_log                  = 0
+slow_query_log_file             = /var/log/mysql/mysql-slow.log
+long_query_time                 = 30
+
+#---------------------------
+myisam_recover_options          = BACKUP                        # Set the MyISAM storage engine recovery mode. If the data file was changed during recovery, save a backup of the tbl_name.MYD file as tbl_name-datetime.BAK.
+key_buffer_size                 = 128M                          # Index blocks for MyISAM tables are buffered and are shared by all threads.
+
+#---------------------------
+max_connections                 = 50
+back_log                        = 20                           # The number of outstanding connection requests MySQL can have. This comes into play when the main MySQL thread gets very many connection requests in a very short time. It then takes some time (although very little) for the main thread to check the connection and start a new thread. The back_log value indicates how many requests can be stacked during this short time before MySQL momentarily stops answering new requests.
+
+innodb_log_file_size            = 64M
+
+#---------------------------
+innodb-doublewrite = 0
+#**************************************************************************
+[client]
+#**************************************************************************
+port                            = 3306
+socket                          = /var/run/mysqld/mysqld.sock
+max_allowed_packet              = 128M
+
+#**************************************************************************
+[mysqldump]
+#**************************************************************************
+quick
+quote-names
+max_allowed_packet              = 128M

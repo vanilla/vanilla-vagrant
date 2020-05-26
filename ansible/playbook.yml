@@ -1,0 +1,465 @@
+---
+  - hosts: all
+    gather_facts: yes
+
+    vars:
+      php_version: 7.2
+      mysql_version: 5.7
+      xtrabackup_version: 24
+      nodejs_version: 12.x
+      mysql_user: root
+      mysql_password: password
+      mysql_host: localhost
+      mysql_users:
+        root:
+          name: root
+          password: password
+          privileges: '*.*:ALL,GRANT'
+        vanilla_dev:
+          name: vanilla_dev
+          password: password
+          privileges: '*.*:ALL,GRANT'
+
+    handlers:
+      - name: restart php
+        service:
+          name: "php{{ php_version }}-fpm"
+          state: restarted
+
+      - name: restart nginx
+        service:
+          name: nginx
+          state: restarted
+
+      - name: restart percona
+        service:
+          name: mysql
+          state: restarted
+
+    tasks:
+      ##
+      ## Global
+      ##
+      - name: GLOBAL | Install Ondrej PHP PPA
+        apt_repository:
+          repo: 'ppa:ondrej/php'
+
+      - name: GLOBAL | Obtaining nginx public key
+        apt_key:
+          url: http://nginx.org/keys/nginx_signing.key
+
+      - name: GLOBAL | Add repository for Nginx
+        apt_repository:
+          repo: 'ppa:nginx/stable'
+
+      - name: GLOBAL | Obtaining Percona's public key
+        apt_key:
+          keyserver: "keyserver.ubuntu.com"
+          id: 9334A25F8507EFA5
+
+      - name: GLOBAL | Adding Percona's Repository
+        apt_repository:
+          repo: 'deb http://repo.percona.com/apt {{ ansible_distribution_release }} main'
+
+      - name: GLOBAL | Adding percona source repository
+        apt_repository:
+          repo: 'deb-src http://repo.percona.com/apt {{ ansible_distribution_release }} main'
+
+      - name: GLOBAL | Add Node apt key
+        apt_key:
+          url: https://keyserver.ubuntu.com/pks/lookup?op=get&fingerprint=on&search=0x1655A0AB68576280
+          id: "68576280"
+          state: present
+
+      - name: GLOBAL | Add Node repositories for Node.js
+        apt_repository:
+          repo: "{{ item }}"
+        with_items:
+          - "deb https://deb.nodesource.com/node_{{ nodejs_version }} {{ ansible_distribution_release }} main"
+          - "deb-src https://deb.nodesource.com/node_{{ nodejs_version }} {{ ansible_distribution_release }} main"
+
+      - name: GLOBAL | Add Yarn apt key
+        apt_key:
+          url: https://dl.yarnpkg.com/debian/pubkey.gpg
+
+      - name: GLOBAL | Add Yarn repository
+        apt_repository:
+          repo: "deb https://dl.yarnpkg.com/debian/ stable main"
+          filename: yarn
+
+      - name: GLOBAL | Install basic packages
+        apt:
+          name:
+            - apt-transport-https
+            - unzip
+            - git
+            - python3-pip
+          state: latest
+
+      - name: GLOBAL | Update apt repo and cache
+        apt:
+          update_cache: yes
+          cache_valid_time: 3600
+
+      - name: GLOBAL | Upgrade all packages
+        apt:
+          upgrade: dist
+          state: latest
+
+      ##
+      ## PIP
+      ##
+      - name: PIP | Install modules
+        pip:
+          name: pymysql
+          state: present
+
+      ##
+      ## PHP
+      ##
+      - name: PHP | Install packages
+        notify:
+          - restart php
+        apt:
+          name:
+            - php{{ php_version }}-common
+            - php{{ php_version }}-cli
+            - php{{ php_version }}-dev
+            - php{{ php_version }}-fpm
+            - php{{ php_version }}-gd
+            - php{{ php_version }}-intl
+            - php{{ php_version }}-imagick
+            - php{{ php_version }}-curl
+            - php{{ php_version }}-imap
+            - php{{ php_version }}-json
+            - php{{ php_version }}-opcache
+            - php{{ php_version }}-xml
+            - php{{ php_version }}-mbstring
+            - php{{ php_version }}-zip
+            - php{{ php_version }}-mysql
+            - php{{ php_version }}-pdo
+            - php{{ php_version }}-xdebug
+            - php{{ php_version }}-apcu
+            - php{{ php_version }}-memcached
+            - libpcre3-dev
+          state: latest
+
+      - name: PHP | Set permission for `/var/log/php` folder
+        file:
+          path: /var/log/php
+          state: directory
+          owner: root
+          group: adm
+          mode: '0744'
+
+      - name: PHP | Copy configuration
+        notify:
+          - restart php
+        copy:
+          src: "{{ item.src }}"
+          dest: "{{ item.dest }}"
+          owner: root
+          group: root
+          mode: '0644'
+        with_items:
+          - { src: 'files/php/99-overwrite-defaults.ini', dest: '/etc/php/{{ php_version }}/cli/conf.d/99-overwrite-defaults.ini' }
+          - { src: 'files/php/99-overwrite-defaults.ini', dest: '/etc/php/{{ php_version }}/fpm/conf.d/99-overwrite-defaults.ini' }
+
+      - name: PHP | Template configuration
+        notify:
+          - restart php
+        template:
+          src: "{{ item.src }}"
+          dest: "{{ item.dest }}"
+          owner: root
+          group: root
+          mode: '0644'
+        with_items:
+          - { src: 'templates/php/php-fpm.conf.j2', dest: '/etc/php/{{ php_version }}/fpm/php-fpm.conf' }
+          - { src: 'templates/php/www.conf.j2', dest: '/etc/php/{{ php_version }}/fpm/pool.d/www.conf' }
+
+      - name: PHP | Fix log folder permissions
+        file:
+          path: "{{ item }}"
+          owner: root
+          group: www-data
+          mode: '0774'
+        with_items:
+          - '/var/log/php'
+
+      - name: PHP | Enable php-fpm service
+        service:
+          name: "php{{ php_version }}-fpm"
+          enabled: yes
+          state: started
+
+      ##
+      ## NGINX
+      ##
+      - name: NGINX | Copy SSL Certificates
+        notify:
+          - restart nginx
+        copy:
+          src: "{{ item.src }}"
+          dest: "{{ item.dest }}"
+          owner: root
+          group: root
+          mode: '0640'
+        with_items:
+          - { src: 'files/nginx/vanilla-box.crt', dest: '/etc/ssl/private/vanilla-box.crt' }
+          - { src: 'files/nginx/vanilla-box.key', dest: '/etc/ssl/private/vanilla-box.key' }
+
+      - name: NGINX | Ensure latest version for openssl and nginx
+        notify:
+          - restart nginx
+        apt:
+          name:
+          - nginx
+          - openssl
+          state: latest
+
+      - name: NGINX | Copy main nginx configuration template
+        notify:
+          - restart nginx
+        template:
+          src: templates/nginx/nginx.conf.j2
+          dest: /etc/nginx/nginx.conf
+          owner: root
+          group: www-data
+          mode: '0640'
+
+      - name: NGINX | Copy FastCGI config
+        notify:
+          - restart nginx
+        template:
+          src: templates/nginx/fastcgi.conf.j2
+          dest: /etc/nginx/fastcgi.conf
+          owner: root
+          group: www-data
+          mode: '0640'
+
+      - name: NGINX | Copy site configuration template
+        notify:
+          - restart nginx
+        template:
+          src: templates/nginx/vanilla.local.conf.j2
+          dest: /etc/nginx/sites-available/vanilla.local.conf
+          owner: root
+          group: www-data
+          mode: '0640'
+
+      - name: NGINX | Create symlink from availables to enables
+        notify:
+          - restart nginx
+        file:
+          src: /etc/nginx/sites-available/vanilla.local.conf
+          dest: /etc/nginx/sites-enabled/vanilla.local.conf
+          state: link
+
+      - name: NGINX | Remove useless folder `/etc/nginx/conf.d`
+        notify:
+          - restart nginx
+        file:
+          state: absent
+          dest: /etc/nginx/conf.d
+
+      - name: NGINX | Remove default site config `/etc/nginx/sites-enabled/default`
+        notify:
+          - restart nginx
+        file:
+          state: absent
+          dest: /etc/nginx/sites-enabled/default
+
+      - name: NGINX | Enable nginx service
+        service:
+          name: nginx
+          enabled: yes
+          state: started
+
+      ##
+      ## Percona
+      ##
+      - name: PERCONA | Install Percona packages and dependencies
+        notify:
+          - restart percona
+        apt:
+          name:
+            - percona-server-server-{{ mysql_version }}
+            - percona-server-client-{{ mysql_version }}
+            - percona-toolkit
+            - percona-xtrabackup-{{ xtrabackup_version }}
+          state: latest
+
+      - name: PERCONA | Overwrite Percona default config
+        notify:
+          - restart percona
+        template:
+          src: templates/percona/my.conf.j2
+          dest: /etc/mysql/my.cnf
+          owner: root
+          group: root
+          mode: '0644'
+
+      - name: PERCONA | Enable mysql service
+        service:
+          name: mysql
+          state: started
+          enabled: yes
+
+      - name: PERCONA | Check if MySQL user can only connect with auth_socket
+        shell: mysql --user="{{ mysql_user }}" --password="{{ mysql_password }}" -NBe 'SELECT plugin FROM mysql.user WHERE Host="{{ mysql_host }}" AND User = "{{ mysql_user }}"'
+        failed_when: no
+        changed_when: no
+        register: mysql_plugin_output
+
+      - name: PERCONA | Update auth_socket to mysql_native_password for our MySQL user
+        shell: mysql --user='{{ mysql_user }}' --password='{{ mysql_password }}' -NBe 'ALTER USER '"{{ mysql_user }}"'@'localhost' IDENTIFIED WITH mysql_native_password BY "{{ mysql_password }}";'
+        when: mysql_plugin_output.stdout == "auth_socket"
+
+      - name: PERCONA | Create mysql users
+        notify:
+          - restart percona
+        mysql_user:
+          name: "{{ item.value.name }}"
+          password: "{{ item.value.password }}"
+          priv: "{{ item.value.privileges }}"
+          host: '%'
+          state: present
+          login_host: "{{ mysql_host }}"
+          login_user: "{{ mysql_user }}"
+          login_password: "{{ mysql_password }}"
+        with_dict: "{{ mysql_users }}"
+        no_log: yes
+
+      - name: PERCONA | Create a new database with name 'vanilla_dev'
+        mysql_db:
+          name: vanilla_dev
+          state: present
+          login_host: "{{ mysql_host }}"
+          login_user: "{{ mysql_user }}"
+          login_password: "{{ mysql_password }}"
+
+      ##
+      ## Memcached
+      ##
+      - name: MEMCACHED | Install Memcached
+        apt:
+          name: memcached
+          state: latest
+
+      ##
+      ## Composer
+      ##
+      - name: COMPOSER | Check if Composer is installed
+        stat: "path=/usr/local/bin/composer"
+        register: composer_bin
+
+      - name: COMPOSER | Get Composer installer signature.
+        uri:
+          url: https://composer.github.io/installer.sig
+          return_content: true
+        register: composer_installer_signature
+        when: not composer_bin.stat.exists
+
+      - name: COMPOSER | Download Composer installer
+        get_url:
+          url: https://getcomposer.org/installer
+          dest: /tmp/composer-installer.php
+          mode: 0755
+          checksum: "sha384:{{ composer_installer_signature.content }}"
+        when: not composer_bin.stat.exists
+
+      - name: COMPOSER | Run Composer installer
+        command: >
+          php composer-installer.php
+          chdir=/tmp
+        when: not composer_bin.stat.exists
+
+      - name: COMPOSER | Move Composer into globally-accessible location.
+        command: >
+          mv /tmp/composer.phar /usr/local/bin/composer
+          creates=/usr/local/bin/composer
+        when: not composer_bin.stat.exists
+
+      ##
+      ## NodeJs
+      ##
+      - name: NODEJS | Install Node
+        apt:
+          name: nodejs
+          state: latest
+
+      ##
+      ## Yarn
+      ##
+      - name: YARN | Install Yarn
+        apt:
+          name: yarn
+          state: latest
+
+      ##
+      ## Add vagrant user to group www-data and adm
+      ##
+      - name: VAGRANT | Set vagrant group to www-data
+        user:
+          name: vagrant
+          group: www-data
+          groups: vagrant,adm
+
+      ##
+      ## Vanilla
+      ##
+      - name: VANILLA | Set permission for `/var/www` folder
+        file:
+          path: /var/www
+          state: directory
+          owner: vagrant
+          group: www-data
+          mode: '0775'
+
+      - name: VANILLA | Check if we have vanilla
+        stat:
+          path: /var/www/vanilla
+        register: vanilla_state
+
+      - name: VANILLA | Clone vanilla/vanilla
+        git:
+          repo: 'https://github.com/vanilla/vanilla.git'
+          dest: /var/www/vanilla
+          version: master
+        when: vanilla_state.stat.isdir is not defined
+        become: false
+
+      - name: VANILLA | Add bootstrap.before.php
+        copy:
+          src: files/vanilla/bootstrap.before.php
+          dest: /var/www/vanilla/conf
+          mode: '0644'
+          owner: vagrant
+          group: www-data
+
+      - name: VANILLA | Add bootstrap.early.php
+        copy:
+          src: files/vanilla/bootstrap.early.php
+          dest: /var/www/vanilla/conf
+          mode: '0644'
+          owner: vagrant
+          group: www-data
+
+      - name: VANILLA | Add phpinfo.php
+        copy:
+          src: files/vanilla/phpinfo.php
+          dest: /var/www/vanilla/
+          mode: '0644'
+          owner: vagrant
+          group: www-data
+
+      - name: VANILLA | Composer install (expect this to take around 5/10 minutes)
+        composer:
+          command: install
+          working_dir: /var/www/vanilla
+        become: false
+
+      ## vagrant user will no have www-data as primary group until reconnection
+      - name: VANILLA | Fix files owner
+        shell: chown -R vagrant:www-data /var/www/
