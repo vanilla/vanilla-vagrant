@@ -12,7 +12,7 @@
   The first time, the VM will be fully provisioned.
   Once the VM is fully provisioned, run `vagrant reload` to do a clean reboot.
 + Install the certificate `/ansible/files/nginx/vanilla-box.crt` as a Trusted host in your Operating System.
-+ Point for browser at `https://192.168.99.10`.
++ Point your browser at `https://192.168.99.10`.
   Optionally, you can edit your hosts file and add an entry for `vanilla.local` or any subdomain (ex: `www.vanilla.local`) and access via that domain.
   The `vanilla-box` is running a a self-signed certificate for `vanilla.local`, `*.vanilla.local` and `192.168.99.10`.
 + You should have been redirected to `https://192.168.99.10/dev/dashboard/setup`. Use the following values:
@@ -73,5 +73,5 @@ Ideally, you will need a PHP IDE with support for:
 + Using the default user `vagrant`, you can ssh into the VM (`vagrant ssh`) and take root privileges using `sudo su -`
 + A convenient `phpinfo` is located at `https://192.168.99.10/phpinfo.php`
 + Opcache, APCu and Memcached are disabled by default to avoid uncertainty. Therefore, there is a strong performance penalty.
-+ A Percona Database is exposed on the standard MySQL port (TCP:3306). We can use any MySQL compatible tool to work with the Database. Default password for `root` is `password`
++ A Percona Database is exposed on the standard MySQL port (TCP:3306). You can use any MySQL compatible tool to work with the Database. Default password for `root` is `password`
 + Please note, by default you will be using the slug `/dev` in your URL. You can change the slug to create several different instances of Vanilla running into the VM with the same source code. Although, you will need to create a Database for the site before the installation.
