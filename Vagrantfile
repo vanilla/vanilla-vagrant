@@ -4,7 +4,7 @@
 Vagrant.configure('2') do |config|
   # Box
   config.vm.define :vanilla_box do
-    config.vm.box = 'hashicorp/bionic64'
+    config.vm.box = 'ubuntu/bionic64'
     config.vm.box_check_update = false
     config.vm.hostname = 'vanilla-box'
   end
