@@ -43,7 +43,7 @@ tmp_table_size                  = 128M                   # The maximum size of i
 
 default_storage_engine          = InnoDB                # The default storage engine. This variable sets the storage engine for permanent tables only.
 default_tmp_storage_engine      = InnoDB                # The default storage engine for TEMPORARY tables (created with CREATE TEMPORARY TABLE).
-internal_tmp_disk_storage_engine = InnoDB               # The storage engine for on-disk internal temporary tables. Default Value: (>= 5.7.6) INNODB; (<= 5.7.5) MYISAM
+#internal_tmp_disk_storage_engine = InnoDB               # The storage engine for on-disk internal temporary tables. Default Value: (>= 5.7.6) INNODB; (<= 5.7.5) MYISAM
 disabled_storage_engines        = "MRG_MYISAM,FEDERATED" # This variable indicates which storage engines cannot be used to create tables or tablespaces. Does not restrict other DDL statements for existing tables
 
 max_connect_errors              = 4294967295            # After max_connect_errors successive connection requests from a host are interrupted without a successful connection, the server blocks that host from further connections. If a connection from a host is established successfully within fewer than max_connect_errors attempts after a previous connection was interrupted, the error count for the host is cleared to zero. However, once a host is blocked, flushing the host cache is the only way to unblock it.
@@ -79,8 +79,8 @@ innodb_thread_concurrency       = 0
 innodb_read_io_threads          = 8
 innodb_write_io_threads         = 8
 
-query_cache_size                = 0
-query_cache_type                = 0
+# query_cache_size                = 0
+# query_cache_type                = 0 
 
 #---------------------------
 log_output                      = FILE
